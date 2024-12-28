@@ -1,11 +1,20 @@
 #!/usr/bin/python
 
+import argparse
 import requests
 import json
 from datetime import datetime
 import pygal
 
-with open('token', 'r') as token_file:
+parser=argparse.ArgumentParser()
+parser.add_argument('-t', '--token', help='File containing API token', default='token')
+parser.add_argument('--start', help='Date/time to begin request', type=lambda s: datetime.fromisoformat(s), default=datetime.now().date())
+parser.add_argument('--end', help='Date/time to end request', type=lambda s: datetime.fromisoformat(s), default=datetime.now())
+args=parser.parse_args()
+
+
+
+with open(args.token, 'r') as token_file:
     token=token_file.read().strip()
 
 heartrate_raw=json.loads(
@@ -14,16 +23,17 @@ heartrate_raw=json.loads(
         'https://api.ouraring.com/v2/usercollection/heartrate',
         headers={'Authorization': f"Bearer {token}"},
         params={
-            'start_datetime': '2024-12-27T00:00:00-05:00',
-            'end_datetime': '2024-12-27T23:59:59-05:00'
+            'start_datetime': args.start.isoformat(),
+            'end_datetime': args.end.isoformat()
         }
     ).text
 )
         
 heartrate=[{'timestamp': datetime.fromisoformat(x['timestamp']), 'source': x['source'], 'bpm': x['bpm']} for x in heartrate_raw['data']]
 
-chart = pygal.DateTimeLine()
+chart = pygal.DateTimeLine(x_label_rotation=35)
 for source in {'awake', 'rest', 'workout'}:
     chart.add(source, [(x['timestamp'], x['bpm']) for x in heartrate if x['source']==source])
-chart.render_to_file('heartrate.svg')
+#chart.render_to_file('heartrate.svg')
+chart.render_in_browser()
 
